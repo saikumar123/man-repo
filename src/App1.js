@@ -1,12 +1,19 @@
-import React, { Component } from 'react'
-import Web3 from 'web3'
+import "./App.css";
+import Nav from "./Nav";
+import "bootstrap";
+import "bootstrap/dist/css/bootstrap.css";
+import "bootstrap/dist/js/bootstrap.js";
+import Web3 from 'web3';
+import { Route, Switch } from "react-router-dom";
+import Login from './Login';
+import UploadScreen from "./UploadScreen";
+import Stake from './abis/Stake.json';
 import ethAddressConfig from './ethAddressConfig';
-//import Token from '../abis/Token.json'
-//import EthSwap from '../abis/EthSwap.json'
-//import Navbar from './Navbar'
-//import Main from './Main'
-//import './App.css'
+import { useState } from "react";
 
+const fs = require('fs');
+
+//const stakeAbi = fs.readFileSync('./abis/Stake.json');
 
 const stakeAbi = [
 	{
@@ -571,110 +578,77 @@ const stakeAbi = [
 	}
 ];
 
+let web3;
+// const handleMetamaskClick = async() => {
+//   let web3;
+//   if (window.ethereum) {
+//     console.log("eth is available on window");
+//     web3 = new web3(window.ethereum);
+//     console.log("web3 is initialized")
+//     await ethereum.enable();
+//   } else 
+//   if(window.web3) {
+//     console.log("old metamask extension", web3)
+//     web3 = new Web3(window.web3.currentProvider);
+//     console.log("after connect", web3)
+//   }
+//   const accounts = await web3.eth.gtAccounts();
+//   console.log(accounts);
+// };
 
-class App extends Component {
+const loadBlockchainData =  async () => {
+  const web3 = window.web3
+  const accounts = await web3.eth.getAccounts()
+  setState({ account: accounts[0] })
+  console.log(accounts);
 
-  async componentWillMount() {
-    await this.loadWeb3()
-    await this.loadBlockchainData()
+  const ethBalance = await web3.eth.getBalance(state.account)
+  setState({ ethBalance })
+
+  // Load Token
+  const networkId =  await web3.eth.net.getId()
+  const stakeData = Stake.networks[networkId]
+  if(stakeData) {
+    const stake = new web3.eth.Contract(stakeAbi, ethAddressConfig.stake_address);
+    this.setState({ stake })
+    let pendingRewards = await stake.methods.pendingRewards(this.state.account).call()
+    console.log("pendingRewards is ", pendingRewards);
+    this.setState({ pendingRewards: pendingRewards.toString() })
+  } else {
+    window.alert('Stake contract not deployed to detected network.')
   }
+}
 
-  
-
-  async loadWeb3() {
-    if (window.ethereum) {
-      window.web3 = new Web3(window.ethereum)
-      await window.ethereum.enable()
-    }
-    else if (window.web3) {
-      window.web3 = new Web3(window.web3.currentProvider)
-    }
-    else {
-      window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!')
-    }
+const loadWeb3 = async() => {
+  if (window.ethereum) {
+    console.log("ethereum is available on window", window)
+    window.web3 = new Web3(window.ethereum)
+    console.log("window.web3 is provided from Web3", window.web3);
+    await window.ethereum.enable()
   }
-
-   async loadBlockchainData() {
-
-
-	   
-    const web3 = window.web3
-
-	const accounts = await web3.eth.getAccounts()
-	console.log("accounts ... ", accounts);
-    this.setState({ account: accounts[0] })
-
-    const ethBalance = await web3.eth.getBalance(this.state.account)
-    this.setState({ ethBalance })
-
-    // Load Token
-    const networkId =  await web3.eth.net.getId()
-   // const stakeData = Token.networks[3]
-    //if(stakeData) {
-      const token = new web3.eth.Contract(stakeAbi, ethAddressConfig.stake_address)
-      this.setState({ token })
-      let pendingRewards = await token.methods.pendingRewards(0,this.state.account).call()
-      this.setState({ tokenBalance: pendingRewards.toString() })
-    // } else {
-    //   window.alert('Token contract not deployed to detected network.')
-    // }
-
-    this.setState({ loading: false })
+  else if (window.web3) {
+    console.log("Trying alternate via using window.web3", window)
+    window.web3 = new Web3(window.web3.currentProvider)
+    console.log("web3 is initialized with current provider")
   }
-
-  constructor(props) {
-    super(props)
-    this.state = {
-      account: '',
-      token: {},
-      ethSwap: {},
-      ethBalance: '0',
-      tokenBalance: '0',
-      loading: true
-	};
-	this.loadBlockchainData = this.loadBlockchainData.bind(this);
+  else {
+    window.alert('Non-Ethereum browser detected. You should consider trying MetaMask!')
   }
+}
 
-  render() {
-    let content
-    if(this.state.loading) {
-      content = <p id="loader" className="text-center">Loading...</p>
-    } 
-    // else {
-    //   content = <Main
-    //     ethBalance={this.state.ethBalance}
-    //     tokenBalance={this.state.tokenBalance}
-    //     buyTokens={this.buyTokens}
-    //     sellTokens={this.sellTokens}
-    //   />
-    // }
-
-    return (
-        <div>
-            <button onClick={this.loadBlockchainData}>MYT Rewards</button> -  {this.state.tokenBalance}
-        </div>
-    //   <div>
-    //     {/* <Navbar account={this.state.account} /> */}
-    //     <div className="container-fluid mt-5">
-    //       <div className="row">
-    //         <main role="main" className="col-lg-12 ml-auto mr-auto" style={{ maxWidth: '600px' }}>
-    //           <div className="content mr-auto ml-auto">
-    //             <a
-    //               href="http://www.dappuniversity.com/bootcamp"
-    //               target="_blank"
-    //               rel="noopener noreferrer"
-    //             >
-    //             </a>
-
-    //             {content}
-
-    //           </div>
-    //         </main>
-    //       </div>
-    //     </div>
-    //   </div>
-    );
-  }
+function App() {
+  const [state , setState] = useState();
+  return (
+    <div className="App">
+      <Nav />
+      <Switch>
+        <Route path="/login" component={Login} exact />
+        <Route path="/upload" component={UploadScreen} exact />
+        </Switch>
+      <button onClick={loadWeb3}>click to login metamask </button>
+      <button onClick={loadBlockchainData}>MYT Rewards</button>
+    </div>
+  );
 }
 
 export default App;
